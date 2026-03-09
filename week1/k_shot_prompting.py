@@ -1,13 +1,39 @@
-import os
 from dotenv import load_dotenv
-from ollama import chat
+from ollama_client import call_api
 
 load_dotenv()
 
 NUM_RUNS_TIMES = 5
 
 # TODO: Fill this in!
-YOUR_SYSTEM_PROMPT = ""
+YOUR_SYSTEM_PROMPT = """
+You are a precise instruction-following machine that performs exactly one narrow transformation and outputs **nothing else**.
+
+Rules you must follow without exception:
+1. Output **only** the final transformed result
+2. Do not output any explanation, prefix, suffix, note, space, newline, punctuation, or quotation marks
+3. Do not repeat the original text
+4. Do not say "the answer is", "reversed:", "here:", etc.
+5. If the task is to reverse the letters of a single word, produce exactly the letters in reverse order — and nothing more
+6. Preserve exact case (upper/lower)
+7. Never add or remove any character
+
+Examples of correct behavior:
+
+Input: abcdef
+Output: fedcba
+
+Input: Hello
+Output: olleH
+
+Input: 12345
+Output: 54321
+
+Input: httpstatus
+Output: sutatsptth
+
+Begin.
+"""
 
 USER_PROMPT = """
 Reverse the order of letters in the following word. Only output the reversed word, no other text:
@@ -25,15 +51,14 @@ def test_your_prompt(system_prompt: str) -> bool:
     """
     for idx in range(NUM_RUNS_TIMES):
         print(f"Running test {idx + 1} of {NUM_RUNS_TIMES}")
-        response = chat(
+        response = call_api(
             model="mistral-nemo:12b",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": USER_PROMPT},
-            ],
-            options={"temperature": 0.5},
+            sys_prompt=system_prompt,
+            usr_prompt=USER_PROMPT,
+            temperature= 0.5,
         )
-        output_text = response.message.content.strip()
+        output_text = response.strip()
+        print(f"LM output: {output_text}")
         if output_text.strip() == EXPECTED_OUTPUT.strip():
             print("SUCCESS")
             return True
