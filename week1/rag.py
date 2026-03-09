@@ -1,20 +1,20 @@
 import os
 import re
-from typing import List, Callable
+from typing import Callable
 from dotenv import load_dotenv
-from ollama import chat
+from ollama_client import call_api
 
 load_dotenv()
 
 NUM_RUNS_TIMES = 5
 
-DATA_FILES: List[str] = [
+DATA_FILES: list[str] = [
     os.path.join(os.path.dirname(__file__), "data", "api_docs.txt"),
 ]
 
 
-def load_corpus_from_files(paths: List[str]) -> List[str]:
-    corpus: List[str] = []
+def load_corpus_from_files(paths: list[str]) -> list[str]:
+    corpus: list[str] = []
     for p in paths:
         if os.path.exists(p):
             try:
@@ -28,7 +28,7 @@ def load_corpus_from_files(paths: List[str]) -> List[str]:
 
 
 # Load corpus from external files (simple API docs). If missing, fall back to inline snippet
-CORPUS: List[str] = load_corpus_from_files(DATA_FILES)
+CORPUS: list[str] = load_corpus_from_files(DATA_FILES)
 
 QUESTION = (
     "Write a Python function `fetch_user_name(user_id: str, api_key: str) -> str` that calls the documented API "
@@ -37,7 +37,16 @@ QUESTION = (
 
 
 # TODO: Fill this in!
-YOUR_SYSTEM_PROMPT = ""
+YOUR_SYSTEM_PROMPT = """
+You are a precise Python coding assistant. Use ONLY the provided context.
+If context includes API docs, follow them exactly:
+* Base URL, endpoint path, and auth header names must match the docs.
+* Return one fenced Python code block only, with imports plus exactly one function:
+  fetch_user_name(user_id: str, api_key: str) -> str.
+* Use requests.get with URL built as '<base_url>/users/{id}', pass header 'X-API-Key',
+* call response.raise_for_status(), parse JSON, and return only the user's name string
+* Do not include explanations or extra text outside the code block.
+"""
 
 
 # For this simple example
@@ -51,15 +60,38 @@ REQUIRED_SNIPPETS = [
 ]
 
 
-def YOUR_CONTEXT_PROVIDER(corpus: List[str]) -> List[str]:
+def YOUR_CONTEXT_PROVIDER(corpus: list[str]) -> list[str]:
     """TODO: Select and return the relevant subset of documents from CORPUS for this task.
 
     For example, return [] to simulate missing context, or [corpus[0]] to include the API docs.
     """
-    return []
+    if not corpus:
+        return []
+
+    keywords = [
+        "api reference",
+        "base url",
+        "x-api-key",
+        "get /users/{id}",
+        "name",
+    ]
+
+    ranked: list[tuple[int, str]] = []
+    for doc in corpus:
+        text = doc.lower()
+        score = sum(1 for kw in keywords if kw in text)
+        if score > 0:
+            ranked.append((score, doc))
+
+    if not ranked:
+        return []
+
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    top_score = ranked[0][0]
+    return [doc for score, doc in ranked if score == top_score]
 
 
-def make_user_prompt(question: str, context_docs: List[str]) -> str:
+def make_user_prompt(question: str, context_docs: list[str]) -> str:
     if context_docs:
         context_block = "\n".join(f"- {d}" for d in context_docs)
     else:
@@ -89,22 +121,20 @@ def extract_code_block(text: str) -> str:
     return text.strip()
 
 
-def test_your_prompt(system_prompt: str, context_provider: Callable[[List[str]], List[str]]) -> bool:
+def test_your_prompt(system_prompt: str, context_provider: Callable[[list[str]], list[str]]) -> bool:
     """Run up to NUM_RUNS_TIMES and return True if any output matches EXPECTED_OUTPUT."""
     context_docs = context_provider(CORPUS)
     user_prompt = make_user_prompt(QUESTION, context_docs)
 
     for idx in range(NUM_RUNS_TIMES):
         print(f"Running test {idx + 1} of {NUM_RUNS_TIMES}")
-        response = chat(
+        response = call_api(
             model="llama3.1:8b",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            options={"temperature": 0.0},
+            sys_prompt=system_prompt,
+            usr_prompt=user_prompt,
+            temperature= 0.0,
         )
-        output_text = response.message.content
+        output_text = response
         code = extract_code_block(output_text)
         missing = [s for s in REQUIRED_SNIPPETS if s not in code]
         if not missing:
