@@ -1,14 +1,19 @@
 import re
+
 import requests
 from dotenv import load_dotenv
+from ollama_client import call_api
 
 load_dotenv()
 
 NUM_RUNS_TIMES = 5
 
 # TODO: Fill this in!
-YOUR_SYSTEM_PROMPT = ""
+YOUR_SYSTEM_PROMPT = """You are a rigorous mathematician who always thinks step by step, verifies every calculation, and restarts from the beginning if verification fails.
 
+Your sole task is to follow the user's prompt precisely using rigorous mathematical methods. Compute the result, then place the final answer on the very last line starting with your response in this exact format:
+Answer: <the number you calculated>
+"""
 
 USER_PROMPT = """
 Solve this problem, then give the final answer on the last line as "Answer: <number>".
@@ -39,36 +44,6 @@ def extract_final_answer(text: str) -> str:
     return text.strip()
 
 
-def call_api(sys_prompt: str, usr_prompt: str, temperature: float = 0.3) -> str:
-    """Call the company API server to generate a response.
-    
-    Args:
-        sys_prompt: The system prompt to send to the model
-        usr_prompt: The user prompt to send to the model
-        temperature: Temperature parameter for generation
-        
-    Returns:
-        The generated response text
-        
-    Raises:
-        requests.RequestException: If the API call fails
-    """
-    payload = {
-        "model": "llama3.1:8b",
-        "system": sys_prompt,
-        "prompt": usr_prompt,
-        "temperature": temperature,
-        "stream": False
-    }
-    
-    API_ENDPOINT = "http://10.248.36.193:11434/api/generate"
-    response = requests.post(API_ENDPOINT, json=payload)
-    response.raise_for_status()
-    
-    result = response.json()
-    return result.get("response", "")
-
-
 def test_your_prompt(sys_prompt: str) -> bool:
     """Run up to NUM_RUNS_TIMES and return True if any output matches EXPECTED_OUTPUT.
 
@@ -79,7 +54,8 @@ def test_your_prompt(sys_prompt: str) -> bool:
         
         # Combine system and user prompts
         try:
-            output_text = call_api(sys_prompt, USER_PROMPT, temperature=0.3)
+            output_text = call_api("llama3.1:8b", sys_prompt, USER_PROMPT, temperature=0.3)
+            # print(f"LM output: {output_text}")
             final_answer = extract_final_answer(output_text)
             if final_answer.strip() == EXPECTED_OUTPUT.strip():
                 print("SUCCESS")
