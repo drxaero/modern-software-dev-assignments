@@ -1,15 +1,35 @@
-import os
 import re
 from collections import Counter
 from dotenv import load_dotenv
-from ollama import chat
+from ollama_client import call_api
 
 load_dotenv()
 
 NUM_RUNS_TIMES = 5
 
 # TODO: Fill this in! Try to get as close to 100% correctness across all runs as possible.
-YOUR_SYSTEM_PROMPT = ""
+YOUR_SYSTEM_PROMPT = """
+You are an extremely careful and precise mathematical reasoner. Your only goal is to solve the word problem correctly — never guess, never assume missing information, never skip steps.
+
+Follow this exact step-by-step thinking style every time:
+
+1. Read the problem slowly and identify every number and every distance relationship mentioned.
+2. Write down what each sentence actually means in plain mathematical language.
+3. Draw a number line or list the segments in order from start → finish.
+4. Assign variables or directly label every important point (start, first stop, second stop, end).
+5. Calculate every segment length one by one. Show every subtraction or addition.
+6. Double-check that the sum of all segments equals the total distance given.
+7. If you find any contradiction, stop and restart the reasoning from step 1.
+8. Only after you are 100 percent certain write the final answer.
+
+Rules you must never break:
+- Do NOT do mental math — write every calculation.
+- Do NOT combine steps that skip intermediate distances.
+- The phrase "before the end" means remaining distance to the finish line.
+- Final answer format must be exactly: Answer: <number>
+  (nothing else on that line)
+
+Solve the problem using only the information explicitly stated."""
 
 USER_PROMPT = """
 Solve this problem, then give the final answer on the last line as "Answer: <number>".
@@ -47,15 +67,13 @@ def test_your_prompt(system_prompt: str) -> bool:
     answers: list[str] = []
     for idx in range(NUM_RUNS_TIMES):
         print(f"Running test {idx + 1} of {NUM_RUNS_TIMES}")
-        response = chat(
+        response = call_api(
             model="llama3.1:8b",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": USER_PROMPT},
-            ],
-            options={"temperature": 1},
+            sys_prompt = system_prompt,
+            usr_prompt=USER_PROMPT,
+            temperature= 1,
         )
-        output_text = response.message.content
+        output_text = response
         final_answer = extract_final_answer(output_text)
         print(f"Run {idx + 1} answer: {final_answer}")
         answers.append(final_answer.strip())
