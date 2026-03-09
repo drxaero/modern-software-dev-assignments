@@ -1,10 +1,10 @@
 import ast
 import json
 import os
-from typing import Any, Dict, List, Optional, Tuple, Callable
+from typing import Any, Optional, Callable
 
 from dotenv import load_dotenv
-from ollama import chat
+from ollama_client import call_api
 
 load_dotenv()
 
@@ -26,11 +26,11 @@ def _annotation_to_str(annotation: Optional[ast.AST]) -> str:
         return type(annotation).__name__
 
 
-def _list_function_return_types(file_path: str) -> List[Tuple[str, str]]:
+def _list_function_return_types(file_path: str) -> list[tuple[str, str]]:
     with open(file_path, "r", encoding="utf-8") as f:
         source = f.read()
     tree = ast.parse(source)
-    results: List[Tuple[str, str]] = []
+    results: list[tuple[str, str]] = []
     for node in tree.body:
         if isinstance(node, ast.FunctionDef):
             return_str = _annotation_to_str(node.returns)
@@ -61,7 +61,7 @@ def greet(name: str) -> str:
     return f"Hello, {name}!"
 
 # Tool registry for dynamic execution by name
-TOOL_REGISTRY: Dict[str, Callable[..., str]] = {
+TOOL_REGISTRY: dict[str, Callable[..., str]] = {
     "output_every_func_return_type": output_every_func_return_type,
 }
 
@@ -70,7 +70,7 @@ TOOL_REGISTRY: Dict[str, Callable[..., str]] = {
 # ==========================
 
 # TODO: Fill this in!
-YOUR_SYSTEM_PROMPT = ""
+YOUR_SYSTEM_PROMPT = "Output in JSON format a call to the tool output_every_func_return_type, which takes a file_path argument. The file_path should be set to the path of this script. Only output the JSON, no other text or explanation."
 
 
 def resolve_path(p: str) -> str:
@@ -84,7 +84,7 @@ def resolve_path(p: str) -> str:
     return p
 
 
-def extract_tool_call(text: str) -> Dict[str, Any]:
+def extract_tool_call(text: str) -> dict[str, Any]:
     """Parse a single JSON object from the model output."""
     text = text.strip()
     # Some models wrap JSON in code fences; attempt to strip
@@ -99,20 +99,18 @@ def extract_tool_call(text: str) -> Dict[str, Any]:
         raise ValueError("Model did not return valid JSON for the tool call")
 
 
-def run_model_for_tool_call(system_prompt: str) -> Dict[str, Any]:
-    response = chat(
+def run_model_for_tool_call(system_prompt: str) -> dict[str, Any]:
+    response = call_api(
         model="llama3.1:8b",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": "Call the tool now."},
-        ],
-        options={"temperature": 0.3},
+        sys_prompt=system_prompt,
+        usr_prompt="Call the tool now.",
+        temperature= 0.3,
     )
-    content = response.message.content
+    content = response
     return extract_tool_call(content)
 
 
-def execute_tool_call(call: Dict[str, Any]) -> str:
+def execute_tool_call(call: dict[str, Any]) -> str:
     name = call.get("tool")
     if not isinstance(name, str):
         raise ValueError("Tool call JSON missing 'tool' string")
