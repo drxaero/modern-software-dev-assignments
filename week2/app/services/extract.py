@@ -121,8 +121,18 @@ def __extract_action_items_llm(text: str) -> list[str]:
         format=_ACTION_ITEMS_SCHEMA,
     )
     data = json.loads(raw)
-    return data.get("action_items", [])
+    items = data.get("action_items", [])
+    seen: set[str] = set()
+    unique: list[str] = []
+    for item in items:
+        key = item.lower()
+        if key not in seen:
+            seen.add(key)
+            unique.append(item)
+    return unique
 
 
 def extract_action_items(text: str) -> list[str]:
+    if text.strip() == "":
+        return []
     return __extract_action_items_llm(text)

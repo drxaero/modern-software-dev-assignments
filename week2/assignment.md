@@ -48,7 +48,7 @@ Some  tips:
 
 ### TODO 2: Add Unit Tests 
 
-Write unit tests for `extract_action_items_llm()` covering multiple inputs (e.g., bullet lists, keyword-prefixed lines, empty input) in `week2/tests/test_extract.py`.
+Create more unit tests for `extract_action_items()` covering multiple inputs (e.g., bullet lists, keyword-prefixed lines, empty input) in `week2/tests/test_extract.py`.
 
 ### TODO 3: Refactor Existing Code for Clarity
 
