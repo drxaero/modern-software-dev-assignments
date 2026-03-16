@@ -7,7 +7,7 @@ import json
 from typing import Any
 from dotenv import load_dotenv
 
-from app.ollama_client import call_api
+from ..ollama_client import call_api
 
 load_dotenv()
 
